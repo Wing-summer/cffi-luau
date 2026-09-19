@@ -1683,7 +1683,7 @@ argcheck:
         int inst_idx = lua_absindex(L, -1);
 
         auto *ctxp = static_cast<ffi::context *>(
-            lua_newuserdatadtor(L, sizeof(ffi::context), [](void *p) {
+            lua_newuserdatadtor(L, sizeof(ffi::context), [](lua_State* ,void *p) {
                 static_cast<ffi::context *>(p)->~context();
             })
         );
