@@ -205,11 +205,11 @@ struct lex_state {
     lex_state() = delete;
 
     lex_state(
-        lua_State *L, char const *str, const char *estr,
+        lua_State *L, ffi::context &ctx, char const *str, const char *estr,
         int pmode = PARSE_MODE_DEFAULT, int paridx = -1
     ):
         p_mode(pmode), p_pidx(paridx), p_L(L), stream(str),
-        send(estr), p_dstore{ast::decl_store::get_main(L)}
+        send(estr), p_dstore{ctx.decls}
     {
         lua_getfield(L, LUA_REGISTRYINDEX, lua::CFFI_PARSER_STATE);
         if (!lua_isuserdata(L, -1)) {
@@ -2685,12 +2685,15 @@ static void parse_err(lua_State *L) {
     lua_error(L);
 }
 
-void parse(lua_State *L, char const *input, char const *iend, int paridx) {
+void parse(
+    lua_State *L, ffi::context &ctx, char const *input, char const *iend,
+    int paridx
+) {
     if (!iend) {
         iend = input + std::strlen(input);
     }
     {
-        lex_state ls{L, input, iend, PARSE_MODE_DEFAULT, paridx};
+        lex_state ls{L, ctx, input, iend, PARSE_MODE_DEFAULT, paridx};
         if (!ls.get() || !parse_decls(ls)) {
             if (ls.err_token() > 0) {
                 char buf[16];
@@ -2713,13 +2716,14 @@ lerr:
 }
 
 ast::c_type parse_type(
-    lua_State *L, char const *input, char const *iend, int paridx
+    lua_State *L, ffi::context &ctx, char const *input, char const *iend,
+    int paridx
 ) {
     if (!iend) {
         iend = input + std::strlen(input);
     }
     {
-        lex_state ls{L, input, iend, PARSE_MODE_NOTCDEF, paridx};
+        lex_state ls{L, ctx, input, iend, PARSE_MODE_NOTCDEF, paridx};
         ast::c_type tp{};
         if (!ls.get() || !parse_type(ls, tp) || !check(ls, -1)) {
             if (ls.err_token() > 0) {
@@ -2743,13 +2747,14 @@ lerr:
 }
 
 ast::c_expr_type parse_number(
-    lua_State *L, ast::c_value &v, char const *input, char const *iend
+    lua_State *L, ffi::context &ctx, ast::c_value &v, char const *input,
+    char const *iend
 ) {
     if (!iend) {
         iend = input + std::strlen(input);
     }
     {
-        lex_state ls{L, input, iend, PARSE_MODE_NOTCDEF};
+        lex_state ls{L, ctx, input, iend, PARSE_MODE_NOTCDEF};
         if (!ls.get() || !check(ls, TOK_INTEGER)) {
             if (ls.err_token() > 0) {
                 char buf[16];
@@ -2773,6 +2778,13 @@ lerr:
 }
 
 void init(lua_State *L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, lua::CFFI_PARSER_STATE);
+    if (lua_isuserdata(L, -1)) {
+        lua_pop(L, 1);
+        return;
+    }
+    lua_pop(L, 1);
+
     /* init parser state for each lua state; it only needs a C++ destructor,
      * so use Luau's lua_newuserdatadtor (Luau has no __gc metamethod) */
     auto *p = static_cast<parser_state *>(

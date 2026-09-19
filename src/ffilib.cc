@@ -34,19 +34,22 @@ struct lib_meta {
 
     static int index(lua_State *L) {
         auto dl = lua::touserdata<lib::c_lib>(L, 1);
-        ffi::get_global(L, dl, luaL_checkstring(L, 2));
+        ffi::get_global(L, lib::get_context(dl, L), dl, luaL_checkstring(L, 2));
         return 1;
     }
 
     static int newindex(lua_State *L) {
         auto dl = lua::touserdata<lib::c_lib>(L, 1);
-        ffi::set_global(L, dl, luaL_checkstring(L, 2), 3);
+        ffi::set_global(
+            L, lib::get_context(dl, L), dl, luaL_checkstring(L, 2), 3
+        );
         return 0;
     }
 
-    static void setup(lua_State *L) {
+    static void setup_mt(lua_State *L) {
         if (!luaL_newmetatable(L, lua::CFFI_LIB_MT)) {
-            luaL_error(L, "unexpected error: registry reinitialized");
+            lua_pop(L, 1);
+            return;
         }
 
         lua_pushliteral(L, "ffi");
@@ -63,8 +66,13 @@ struct lib_meta {
         lua_pushcfunction(L, tostring);
         lua_setfield(L, -2, "__tostring");
 
+        lua_pop(L, 1);
+    }
+
+    static void attach(lua_State *L, int inst_idx) {
+        luaL_getmetatable(L, lua::CFFI_LIB_MT);
         lua_setmetatable(L, -2);
-        lua_setfield(L, -2, "C");
+        lua_setfield(L, inst_idx, "C");
     }
 };
 
@@ -911,7 +919,8 @@ struct cdata_meta {
 
     static void setup(lua_State *L) {
         if (!luaL_newmetatable(L, lua::CFFI_CDATA_MT)) {
-            luaL_error(L, "unexpected error: registry reinitialized");
+            lua_pop(L, 1);
+            return;
         }
 
         lua_pushliteral(L, "ffi");
@@ -1033,10 +1042,25 @@ struct cdata_meta {
 
 /* the ffi module itself */
 struct ffi_module {
+    static ffi::context &ctx(lua_State *L) {
+        auto *ret = lua::touserdata<ffi::context>(L, lua_upvalueindex(1));
+        if (!ret) {
+            luaL_error(L, "internal error: ffi context is null");
+        }
+        return *ret;
+    }
+
+    static int make_ctx_ref(lua_State *L, int ctx_idx) {
+        lua_pushvalue(L, ctx_idx);
+        return luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+
     static int cdef_f(lua_State *L) {
         std::size_t slen;
         char const *inp = luaL_checklstring(L, 1, &slen);
-        parser::parse(L, inp, inp + slen, (lua_gettop(L) > 1) ? 2 : -1);
+        parser::parse(
+            L, ctx(L), inp, inp + slen, (lua_gettop(L) > 1) ? 2 : -1
+        );
         return 0;
     }
 
@@ -1056,7 +1080,7 @@ struct ffi_module {
         std::size_t slen;
         char const *inp = luaL_checklstring(L, idx, &slen);
         auto &ct = ffi::newctype(
-            L, parser::parse_type(L, inp, inp + slen, paridx)
+            L, parser::parse_type(L, ctx(L), inp, inp + slen, paridx)
         );
         lua_replace(L, idx);
         return ct.decl;
@@ -1161,7 +1185,9 @@ struct ffi_module {
             lua_newuserdatatagged(L, sizeof(lib::c_lib), lua::CLIB_UTAG)
         );
         new (c_ud) lib::c_lib{};
-        lib::load(c_ud, path, L, glob);
+        lib::load(
+            c_ud, path, L, make_ctx_ref(L, lua_upvalueindex(1)), glob
+        );
         return 1;
     }
 
@@ -1507,7 +1533,9 @@ argcheck:
         /* TODO: accept expressions */
         char const *str = luaL_checkstring(L, 1);
         ast::c_value outv;
-        auto v = parser::parse_number(L, outv, str, str + lua_rawlen(L, 1));
+        auto v = parser::parse_number(
+            L, ctx(L), outv, str, str + lua_rawlen(L, 1)
+        );
         ffi::make_cdata_arith(L, v, outv);
         return 1;
     }
@@ -1581,7 +1609,16 @@ argcheck:
 #endif
     }
 
-    static void setup(lua_State *L) {
+    static void set_ctx_function(
+        lua_State *L, int inst_idx, int ctx_idx, char const *name,
+        lua_CFunction fn
+    ) {
+        lua_pushvalue(L, ctx_idx);
+        lua_pushcclosure(L, fn, 1);
+        lua_setfield(L, inst_idx, name);
+    }
+
+    static void setup_instance(lua_State *L, int inst_idx, int ctx_idx) {
         static luaL_Reg const lib_def[] = {
             /* core */
             {"cdef", cdef_f},
@@ -1612,45 +1649,64 @@ argcheck:
 
             {nullptr, nullptr}
         };
-        luaL_newlib(L, lib_def);
+        for (auto const *f = lib_def; f->name; ++f) {
+            set_ctx_function(L, inst_idx, ctx_idx, f->name, f->func);
+        }
 
         lua_pushliteral(L, FFI_OS_NAME);
-        lua_setfield(L, -2, "os");
+        lua_setfield(L, inst_idx, "os");
 
         lua_pushliteral(L, FFI_ARCH_NAME);
-        lua_setfield(L, -2, "arch");
+        lua_setfield(L, inst_idx, "arch");
 
         setup_abi(L);
         lua_pushcclosure(L, abi_f, 1);
-        lua_setfield(L, -2, "abi");
+        lua_setfield(L, inst_idx, "abi");
 
         /* FIXME: relying on the global table being intact */
         lua_getglobal(L, "tonumber");
         lua_pushcclosure(L, tonumber_f, 1);
-        lua_setfield(L, -2, "tonumber");
+        lua_setfield(L, inst_idx, "tonumber");
 
         /* NULL = (void *)0 */
         ffi::newcdata(L, ast::c_type{
             util::make_rc<ast::c_type>(ast::C_BUILTIN_VOID, 0),
             0, ast::C_BUILTIN_PTR
         }, sizeof(void *)).as<void *>() = nullptr;
-        lua_setfield(L, -2, "nullptr");
+        lua_setfield(L, inst_idx, "nullptr");
     }
 
-    static void setup_dstor(lua_State *L) {
-        /* Declaration storage is a userdata kept in the registry. It only
-         * needs a C++ destructor (no Lua-side cleanup), so use Luau's
-         * lua_newuserdatadtor -- no tag, no metatable, no __gc required.
-         */
-        auto *ds = static_cast<ast::decl_store *>(
-            lua_newuserdatadtor(L, sizeof(ast::decl_store), [](void *p) {
-                static_cast<ast::decl_store *>(p)->~decl_store();
+    static int new_instance_f(lua_State *L) {
+        luaL_argcheck(L, lua_gettop(L) == 0, 1, "expected no arguments");
+
+        lua_newtable(L);
+        int inst_idx = lua_absindex(L, -1);
+
+        auto *ctxp = static_cast<ffi::context *>(
+            lua_newuserdatadtor(L, sizeof(ffi::context), [](void *p) {
+                static_cast<ffi::context *>(p)->~context();
             })
         );
-        new (ds) ast::decl_store{};
-        /* stack: dstor */
-        lua_setfield(L, LUA_REGISTRYINDEX, lua::CFFI_DECL_STOR);
-        /* stack: empty */
+        new (ctxp) ffi::context{};
+        int ctx_idx = lua_absindex(L, -1);
+
+        setup_instance(L, inst_idx, ctx_idx);
+
+        auto *c_ud = static_cast<lib::c_lib *>(
+            lua_newuserdatatagged(L, sizeof(lib::c_lib), lua::CLIB_UTAG)
+        );
+        new (c_ud) lib::c_lib{};
+        lib::load(c_ud, nullptr, L, make_ctx_ref(L, ctx_idx), false);
+        lib_meta::attach(L, inst_idx);
+
+        lua_pop(L, 1); /* context userdata, kept alive by function upvalues */
+        return 1;
+    }
+
+    static void setup_factory(lua_State *L) {
+        lua_newtable(L);
+        lua_pushcfunction(L, new_instance_f);
+        lua_setfield(L, -2, "new");
     }
 
     static void open(lua_State *L) {
@@ -1661,21 +1717,13 @@ argcheck:
         lua_setuserdatadtor(L, lua::CDATA_UTAG, &cdata_meta::gc_dtor);
         lua_setuserdatadtor(L, lua::CLIB_UTAG, &lib_meta::gc_dtor);
 
-        setup_dstor(L); /* declaration store */
         parser::init(L);
 
         /* cdata handles */
         cdata_meta::setup(L);
+        lib_meta::setup_mt(L);
 
-        setup(L); /* push table to stack */
-
-        /* lib handles, needs the module table on the stack */
-        auto *c_ud = static_cast<lib::c_lib *>(
-            lua_newuserdatatagged(L, sizeof(lib::c_lib), lua::CLIB_UTAG)
-        );
-        new (c_ud) lib::c_lib{};
-        lib::load(c_ud, nullptr, L, false);
-        lib_meta::setup(L);
+        setup_factory(L); /* push factory table to stack */
     }
 };
 

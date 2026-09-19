@@ -1,7 +1,7 @@
 -- ffi.os, ffi.arch is not tested as that will vary by platform
 -- same with other ffi.abi parameters, etc
 
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 if ffi.abi("be") then
     assert(not ffi.abi("le"))

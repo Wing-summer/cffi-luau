@@ -1,4 +1,4 @@
-local ffi = require('cffi')
+local ffi = cffi.new()
 
 ffi.cdef [[
     extern char const test_string[];

@@ -8,6 +8,7 @@
 
 #include "lua.hh"
 #include "lib.hh"
+#include "context.hh"
 #include "ast.hh"
 #include "util.hh"
 
@@ -351,8 +352,13 @@ int to_lua(
  */
 void from_lua(lua_State *L, ast::c_type const &decl, void *stor, int idx);
 
-void get_global(lua_State *L, lib::c_lib const *dl, const char *sname);
-void set_global(lua_State *L, lib::c_lib const *dl, char const *sname, int idx);
+void get_global(
+    lua_State *L, ffi::context &ctx, lib::c_lib const *dl, const char *sname
+);
+void set_global(
+    lua_State *L, ffi::context &ctx, lib::c_lib const *dl, char const *sname,
+    int idx
+);
 
 void make_cdata(lua_State *L, ast::c_type const &decl, int rule, int idx);
 

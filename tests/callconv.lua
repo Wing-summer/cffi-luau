@@ -1,6 +1,6 @@
 -- calling convention specifiers are ignored except on 32-bit x86 windows
 
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 local L = require("testlib")
 

@@ -1,4 +1,4 @@
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 local tlp = os.getenv("TESTLIB_PATH")
 if not tlp or (#tlp == 0) then

@@ -1,4 +1,4 @@
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 -- named args
 local called = false

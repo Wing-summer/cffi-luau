@@ -22,6 +22,7 @@ target_link_libraries(cffi_test_host PRIVATE cffi Luau.Compiler Luau.VM)
 # Test cases. These mirror the original suite minus metatype54 (which targets
 # Lua 5.4 semantics that Luau, being ~5.1 at the C API level, does not have).
 set(CFFI_TEST_CASES
+    instance
     simple
     abi
     variadic

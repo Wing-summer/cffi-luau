@@ -7,9 +7,9 @@
  * statically link cffi in, and provide the small set of globals the tests
  * expect:
  *
- *   - require("cffi")    -> the cffi module table (via luaopen_cffi)
- *   - require("testlib") -> cffi.load(<testlib path>) using argv[2]
- *   - skip_test()        -> raises a sentinel error; we exit 77 (CTest skip)
+ *   - cffi              -> global table (from luaopen_cffi)
+ *   - require("testlib")-> cffi.load(<testlib path>) using argv[2]
+ *   - skip_test()       -> raises a sentinel error; we exit 77 (CTest skip)
  *
  * Usage: cffi_test_host <test.lua> [<testlib-shared-lib-path>]
  * Exit codes: 0 = pass, 77 = skipped, anything else = failure.
@@ -31,23 +31,14 @@ extern "C" int luaopen_cffi(lua_State *L);
 static const char SKIP_SENTINEL[] = "__CFFI_SKIP_TEST__";
 static std::string g_testlib_path;
 
-static void push_cffi(lua_State *L) {
-    lua_pushcfunction(L, luaopen_cffi, "luaopen_cffi");
-    lua_call(L, 0, 1);
-}
-
 static int l_require(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
-    if (std::strcmp(name, "cffi") == 0) {
-        push_cffi(L);
-        return 1;
-    }
     if (std::strcmp(name, "testlib") == 0) {
         if (g_testlib_path.empty()) {
             /* no testlib available -> behave like the old testlib.lua skip */
             luaL_error(L, "%s", SKIP_SENTINEL);
         }
-        push_cffi(L);                 /* cffi */
+        lua_getglobal(L, "cffi");     /* cffi */
         lua_getfield(L, -1, "load");  /* cffi, cffi.load */
         lua_remove(L, -2);            /* cffi.load */
         lua_pushlstring(L, g_testlib_path.data(), g_testlib_path.size());
@@ -88,14 +79,16 @@ int main(int argc, char **argv) {
     }
     luaL_openlibs(L);
 
+    /* expose cffi as a global directly */
+    luaopen_cffi(L);              /* pushes the cffi module table */
+    lua_setglobal(L, "cffi");
+
     /* test environment globals (NB: we intentionally do not sandbox, so the
      * global table stays writable) */
     lua_pushcfunction(L, l_require, "require");
     lua_setglobal(L, "require");
     lua_pushcfunction(L, l_skip_test, "skip_test");
     lua_setglobal(L, "skip_test");
-    push_cffi(L);
-    lua_setglobal(L, "cffi");
 
     /* compile + load the Luau source */
     size_t bclen = 0;

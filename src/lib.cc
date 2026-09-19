@@ -11,6 +11,7 @@
 #endif
 
 #include "lib.hh"
+#include "context.hh"
 
 #if FFI_OS == FFI_OS_WINDOWS
 #include <cstdlib>
@@ -56,6 +57,8 @@ static handle open(char const *path, bool global) {
 void close(c_lib *cl, lua_State *L) {
     luaL_unref(L, LUA_REGISTRYINDEX, cl->cache);
     cl->cache = LUA_REFNIL;
+    luaL_unref(L, LUA_REGISTRYINDEX, cl->ctx_ref);
+    cl->ctx_ref = LUA_REFNIL;
     if (cl->h != FFI_DL_DEFAULT) {
         dlclose(cl->h);
     }
@@ -151,7 +154,8 @@ static bool resolve_ldscript(
     return got;
 }
 
-void load(c_lib *cl, char const *path, lua_State *L, bool global) {
+void load(c_lib *cl, char const *path, lua_State *L, int ctx_ref, bool global) {
+    cl->ctx_ref = ctx_ref;
     if (!path) {
         /* primary namespace */
         cl->h = FFI_DL_DEFAULT;
@@ -255,7 +259,8 @@ static char const *dl_ext_name(lua_State *L, char const *name) {
     return lua_tostring(L, -1);
 }
 
-void load(c_lib *cl, char const *path, lua_State *L, bool) {
+void load(c_lib *cl, char const *path, lua_State *L, int ctx_ref, bool) {
+    cl->ctx_ref = ctx_ref;
     if (!path) {
         /* primary namespace */
         cl->h = FFI_DL_DEFAULT;
@@ -280,6 +285,8 @@ void load(c_lib *cl, char const *path, lua_State *L, bool) {
 void close(c_lib *cl, lua_State *L) {
     luaL_unref(L, LUA_REGISTRYINDEX, cl->cache);
     cl->cache = LUA_REFNIL;
+    luaL_unref(L, LUA_REGISTRYINDEX, cl->ctx_ref);
+    cl->ctx_ref = LUA_REFNIL;
     if (cl->h == FFI_DL_DEFAULT) {
         for (int i = FFI_DL_HANDLE_KERNEL32; i < FFI_DL_HANDLE_MAX; ++i) {
             void *p = ffi_dl_handle[i];
@@ -354,7 +361,8 @@ bool is_c(c_lib const *cl) {
 
 #else
 
-void load(c_lib *, char const *, lua_State *L, bool) {
+void load(c_lib *cl, char const *, lua_State *L, int ctx_ref, bool) {
+    cl->ctx_ref = ctx_ref;
     luaL_error(L, "no support for dynamic library loading on this target");
     return nullptr;
 }
@@ -371,6 +379,16 @@ bool is_c(c_lib const *) {
 }
 
 #endif /* FFI_USE_DLFCN, FFI_OS == FFI_OS_WINDOWS */
+
+ffi::context &get_context(c_lib const *cl, lua_State *L) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, cl->ctx_ref);
+    auto *ctx = lua::touserdata<ffi::context>(L, -1);
+    if (!ctx) {
+        luaL_error(L, "internal error: ffi context is null");
+    }
+    lua_pop(L, 1);
+    return *ctx;
+}
 
 void *get_sym(c_lib const *cl, lua_State *L, char const *name) {
     lua_rawgeti(L, LUA_REGISTRYINDEX, cl->cache);

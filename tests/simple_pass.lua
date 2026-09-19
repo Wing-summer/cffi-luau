@@ -1,4 +1,4 @@
-local ffi = require("cffi")
+local ffi = cffi.new()
 local L = require("testlib")
 
 -- pattern to fill the memory with; long enough to cover every case

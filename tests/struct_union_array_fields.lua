@@ -1,4 +1,4 @@
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 local field_size = function(tp, t2)
     local sz = ffi.sizeof(tp)
@@ -186,4 +186,3 @@ assert(ffi.alignof("union ubar_u") == expected_al)
 assert(ffi.sizeof("struct ubar") == expected_sz)
 assert(ffi.alignof("struct ubar") == expected_al)
 assert((expected_sz % expected_al) == 0)
-

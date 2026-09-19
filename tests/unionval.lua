@@ -3,7 +3,7 @@
 -- a byte pattern, then passed by value to C; C simply returns it (again
 -- by value) and then we do a byte comparison on both
 
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 if not ffi.abi("unionval") then
     skip_test()

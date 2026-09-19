@@ -1,4 +1,4 @@
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 -- it's okay to redefine funcs (and extern vars)
 -- the first definition always stays

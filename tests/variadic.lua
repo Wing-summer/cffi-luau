@@ -1,4 +1,4 @@
-local ffi = require("cffi")
+local ffi = cffi.new()
 
 ffi.cdef [[
     int test_snprintf(char *buf, size_t n, char const *fmt, ...);

@@ -1445,9 +1445,10 @@ void from_lua(lua_State *L, ast::c_type const &decl, void *stor, int idx) {
     }
 }
 
-void get_global(lua_State *L, lib::c_lib const *dl, const char *sname) {
-    auto &ds = ast::decl_store::get_main(L);
-    auto const *decl = ds.lookup(sname);
+void get_global(
+    lua_State *L, ffi::context &ctx, lib::c_lib const *dl, const char *sname
+) {
+    auto const *decl = ctx.decls.lookup(sname);
 
     auto tp = ast::c_object_type::INVALID;
     if (decl) {
@@ -1481,9 +1482,11 @@ void get_global(lua_State *L, lib::c_lib const *dl, const char *sname) {
     }
 }
 
-void set_global(lua_State *L, lib::c_lib const *dl, char const *sname, int idx) {
-    auto &ds = ast::decl_store::get_main(L);
-    auto const *decl = ds.lookup(sname);
+void set_global(
+    lua_State *L, ffi::context &ctx, lib::c_lib const *dl, char const *sname,
+    int idx
+) {
+    auto const *decl = ctx.decls.lookup(sname);
     if (!decl) {
         luaL_error(L, "missing declaration for symbol '%s'", sname);
         return;
