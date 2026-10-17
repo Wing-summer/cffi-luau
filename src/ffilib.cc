@@ -1103,7 +1103,7 @@ struct ffi_module {
             L, ct.type() == ast::C_BUILTIN_RECORD, 1,
             "invalid C type"
         );
-        int mflags;
+        int mflags = 0;
         if (ct.record().metatype(mflags) != LUA_REFNIL) {
             luaL_error(L, "cannot change a protected metatable");
         }
@@ -1164,10 +1164,8 @@ struct ffi_module {
 
 #undef FIELD_CHECK
 
-        /* Store the metatype table as a registry ref. Luau's lua_ref is
-         * registry-only (it cannot ref into an arbitrary table the way
-         * reference Lua's luaL_ref does), and metatypes are permanent for the
-         * life of the state anyway, so the registry is the natural home.
+        /* Store the metatype table as a registry ref. A ctype can outlive its
+         * originating instance, so this reference remains valid for the VM.
          */
         lua_pushvalue(L, 2);
         const_cast<ast::c_record &>(ct.record()).metatype(
@@ -1683,7 +1681,7 @@ argcheck:
         int inst_idx = lua_absindex(L, -1);
 
         auto *ctxp = static_cast<ffi::context *>(
-            lua_newuserdatadtor(L, sizeof(ffi::context), [](lua_State* ,void *p) {
+            lua_newuserdatadtor(L, sizeof(ffi::context), [](lua_State *, void *p) {
                 static_cast<ffi::context *>(p)->~context();
             })
         );

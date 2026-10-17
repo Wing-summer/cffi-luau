@@ -1,5 +1,6 @@
 # Test support library. Built shared so the FFI can dlopen/LoadLibrary it at
-# runtime via cffi.load() (its symbols are exported with __declspec(dllexport)
+# runtime via an instance's ffi.load() (its symbols are exported with
+# __declspec(dllexport)
 # / default visibility from testlib.cc). The "" prefix keeps the name as
 # testlib.dll / testlib.so (no "lib" prefix) on all platforms.
 add_library(testlib SHARED testlib.cc)

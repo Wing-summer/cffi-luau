@@ -1,5 +1,12 @@
 # Introduction
 
+The host exposes `cffi` as a factory. Create an isolated instance before using
+the API; the examples below use the local name `cffi` for that instance:
+
+```lua
+local cffi = cffi.new()
+```
+
 The `cffi-lua` project aims to provide a Lua module that allows calling C
 functions and using C data structures from Lua.
 
@@ -19,8 +26,8 @@ Lua 5.1. It works with LuaJIT itself, too, but there isn't much use to that.
 
 ## Simple example
 
-```
-local cffi = require("cffi")
+```lua
+local cffi = cffi.new()
 cffi.cdef [[
     int printf(char const *fmt, ...);
 ]]
@@ -31,7 +38,7 @@ Note how this is pretty much identical to the example on the LuaJIT website.
 
 Using the FFI consists of three steps:
 
-1) First you need to load the module using `require`
+1) Create an instance using the global `cffi` factory
 2) Declare the C functions/data structures you wish to use
 3) Call the C function using the appropriate namespace
 

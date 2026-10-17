@@ -5,7 +5,7 @@ ffi.cdef [[
     extern int const test_ints[3];
 ]]
 
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 assert(L.test_string[0] == string.byte('f'))
 assert(L.test_string[1] == string.byte('o'))

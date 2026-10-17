@@ -1211,13 +1211,6 @@ struct decl_store {
 
     std::size_t request_name(char *buf, std::size_t bufsize);
 
-    static decl_store &get_main(lua_State *L) {
-        lua_getfield(L, LUA_REGISTRYINDEX, lua::CFFI_DECL_STOR);
-        auto *ds = lua::touserdata<decl_store>(L, -1);
-        assert(ds);
-        lua_pop(L, 1);
-        return *ds;
-    }
 private:
     struct obj_ptr {
         c_object *value = nullptr;

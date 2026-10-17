@@ -8,7 +8,7 @@ ffi.cdef [[
     pass test_struct_val(pass a, pass b);
 ]]
 
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 local a = ffi.new("pass", 5, 10)
 local b = ffi.new("pass", 50, 100)

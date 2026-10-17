@@ -4,7 +4,7 @@ ffi.cdef [[
     int test_snprintf(char *buf, size_t n, char const *fmt, ...);
 ]]
 
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 local buf = ffi.new("char[256]")
 local bufs = ffi.sizeof(buf)

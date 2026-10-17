@@ -364,10 +364,13 @@ bool is_c(c_lib const *cl) {
 void load(c_lib *cl, char const *, lua_State *L, int ctx_ref, bool) {
     cl->ctx_ref = ctx_ref;
     luaL_error(L, "no support for dynamic library loading on this target");
-    return nullptr;
 }
 
-void close(c_lib *, lua_State *) {
+void close(c_lib *cl, lua_State *L) {
+    luaL_unref(L, LUA_REGISTRYINDEX, cl->cache);
+    cl->cache = LUA_REFNIL;
+    luaL_unref(L, LUA_REGISTRYINDEX, cl->ctx_ref);
+    cl->ctx_ref = LUA_REFNIL;
 }
 
 static void *get_sym(c_lib const *, char const *) {

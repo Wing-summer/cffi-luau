@@ -129,7 +129,6 @@ namespace lua {
 static constexpr int CFFI_CTYPE_TAG = -128;
 static constexpr char const CFFI_CDATA_MT[] = "cffi_cdata_handle";
 static constexpr char const CFFI_LIB_MT[] = "cffi_lib_handle";
-static constexpr char const CFFI_DECL_STOR[] = "cffi_decl_stor";
 static constexpr char const CFFI_PARSER_STATE[] = "cffi_parser_state";
 
 /* Luau userdata tags.
@@ -140,7 +139,7 @@ static constexpr char const CFFI_PARSER_STATE[] = "cffi_parser_state";
  * lua_State; if the embedding host already uses these particular tag numbers
  * for its own userdata, override them at compile time.
  *
- * Storage that only needs a C++ destructor (the declaration store and parser
+ * Storage that only needs a C++ destructor (instance contexts and parser
  * state) instead uses lua_newuserdatadtor and needs no dedicated tag.
  */
 #ifndef CFFI_CDATA_UTAG

@@ -35,8 +35,12 @@ matter for an FFI. The port handles these as follows:
 - **`extern "C"` is not used** around the Luau headers — Luau's API has C++
   linkage by default (we do not enable `LUAU_EXTERN_C`).
 
+The global `cffi` table is only a factory. Create an isolated FFI instance with
+`local ffi = cffi.new()` before declaring or using C types. Each instance owns
+its declaration store and `ffi.C` namespace.
+
 Everything else — the C parser, type system, struct/union/array handling,
-calling conventions, callbacks, `cffi.load` of shared libraries, and the
+calling conventions, callbacks, `ffi.load` of shared libraries, and the
 non-`__gc` metamethods (`__index`, `__add`, `__call`, …) — works as in the
 upstream project.
 
@@ -50,7 +54,7 @@ upstream project.
 - Bitfields are not supported
 - Several new API extensions
 
-Use `cffi.nullptr` instead of comparing against `nil`. See `docs/` for the
+Use `ffi.nullptr` instead of comparing against `nil`. See `docs/` for the
 full API and semantics, and `STATUS.md` for feature status.
 
 ## Dependencies
@@ -98,8 +102,16 @@ lua_State *L = luaL_newstate();
 luaL_openlibs(L);
 
 lua_pushcfunction(L, luaopen_cffi, "luaopen_cffi");
-lua_call(L, 0, 1);          // leaves the cffi table on the stack
-lua_setglobal(L, "ffi");    // now usable from Luau as `ffi`
+lua_call(L, 0, 1);          // leaves the cffi factory table on the stack
+lua_setglobal(L, "cffi");
+```
+
+Create an instance in Luau before using the FFI API:
+
+```lua
+local ffi = cffi.new()
+ffi.cdef("typedef int my_int;")
+local value = ffi.new("my_int", 1)
 ```
 
 In CMake:

@@ -1,5 +1,5 @@
 local ffi = cffi.new()
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 ffi.cdef [[
     int foo(char *buf, size_t n, char const *fmt, ...) __asm__("test_snprintf");

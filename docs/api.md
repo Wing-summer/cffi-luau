@@ -3,6 +3,9 @@
 This document describes the API provided by the FFI module. It aims to stay
 mostly comparible with LuaJIT's FFI: http://luajit.org/ext_ffi.html
 
+In this document, `cffi` refers to an instance created with
+`local cffi = cffi.new()`, not the global factory table.
+
 However, there is a number of differences.
 
 ## Terms

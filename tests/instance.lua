@@ -2,6 +2,9 @@ assert(cffi.cdef == nil)
 assert(cffi.typeof == nil)
 assert(cffi.load == nil)
 assert(type(cffi.new()) == "table")
+for name in pairs(cffi) do
+    assert(name == "new")
+end
 
 local a = cffi.new()
 local b = cffi.new()

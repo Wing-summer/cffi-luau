@@ -2,7 +2,7 @@
 
 local ffi = cffi.new()
 
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 ffi.cdef [[
     int __stdcall test_stdcall(int, int);

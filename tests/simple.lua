@@ -1,5 +1,5 @@
 local ffi = cffi.new()
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 ffi.cdef [[
     size_t test_strlen(char const *str);

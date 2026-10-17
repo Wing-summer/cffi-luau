@@ -5,12 +5,14 @@
  * to be statically linked into a host application that embeds Luau.
  *
  * After creating your lua_State and opening the standard libraries, call
- * luaopen_cffi(L). It leaves the cffi module table on top of the stack and
+ * luaopen_cffi(L). It leaves the cffi factory table on top of the stack and
  * returns 1, so a typical host registers it as a global like this:
  *
  *     lua_pushcfunction(L, luaopen_cffi, "luaopen_cffi");
  *     lua_call(L, 0, 1);
- *     lua_setglobal(L, "ffi");
+ *     lua_setglobal(L, "cffi");
+ *
+ * Luau code must then create an isolated instance with cffi.new().
  */
 
 #include "lua.hh"

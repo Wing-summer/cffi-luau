@@ -9,7 +9,7 @@ if not ffi.abi("unionval") then
     skip_test()
 end
 
-local L = require("testlib")
+local L = load_testlib(ffi)
 
 -- pattern to fill the memory with; long enough to cover every case
 local pattern = string.char(0x3C, 0xF, 0xF0, 0xC3):rep(32)
