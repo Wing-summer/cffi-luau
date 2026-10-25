@@ -72,6 +72,7 @@ struct lib_meta {
     static void attach(lua_State *L, int inst_idx) {
         luaL_getmetatable(L, lua::CFFI_LIB_MT);
         lua_setmetatable(L, -2);
+        // @luau-field C: CLibrary
         lua_setfield(L, inst_idx, "C");
     }
 };
@@ -270,6 +271,7 @@ struct cdata_meta {
         return true;
     }
 
+    // @luau callback (self: Callback) -> ()
     static int cb_free(lua_State *L) {
         auto &cd = ffi::checkcdata(L, 1);
         luaL_argcheck(L, cd.decl.closure(), 1, "not a callback");
@@ -283,6 +285,7 @@ struct cdata_meta {
         return 0;
     }
 
+    // @luau callback (self: Callback, func: (...any) -> ...any) -> ()
     static int cb_set(lua_State *L) {
         auto &cd = ffi::checkcdata(L, 1);
         luaL_argcheck(L, cd.decl.closure(), 1, "not a callback");
@@ -1040,6 +1043,12 @@ struct cdata_meta {
     }
 };
 
+// Dynamic C declarations are resolved by each isolated runtime instance.
+// @luau-type CData = any
+// @luau-type CType = (...any) -> CData
+// @luau-type CTypeSpec = string | CType | CData
+// @luau-type CLibrary = {[string]: any}
+
 /* the ffi module itself */
 struct ffi_module {
     static ffi::context &ctx(lua_State *L) {
@@ -1055,6 +1064,7 @@ struct ffi_module {
         return luaL_ref(L, LUA_REGISTRYINDEX);
     }
 
+    // @luau instance (definition: string, ...: any) -> ()
     static int cdef_f(lua_State *L) {
         std::size_t slen;
         char const *inp = luaL_checklstring(L, 1, &slen);
@@ -1086,17 +1096,20 @@ struct ffi_module {
         return ct.decl;
     }
 
+    // @luau instance (ct: CTypeSpec, ...: any) -> CData
     static int new_f(lua_State *L) {
         ffi::make_cdata(L, check_ct(L, 1), ffi::RULE_CONV, 2);
         return 1;
     }
 
+    // @luau instance (ct: CTypeSpec, value: any) -> CData
     static int cast_f(lua_State *L) {
         luaL_checkany(L, 2);
         ffi::make_cdata(L, check_ct(L, 1), ffi::RULE_CAST, 2);
         return 1;
     }
 
+    // @luau instance (ct: CTypeSpec, metatable: {[string]: any}) -> CType
     static int metatype_f(lua_State *L) {
         auto &ct = check_ct(L, 1);
         luaL_argcheck(
@@ -1176,6 +1189,7 @@ struct ffi_module {
         return 1; /* return the ctype */
     }
 
+    // @luau instance (name: string, global: boolean?) -> CLibrary
     static int load_f(lua_State *L) {
         char const *path = luaL_checkstring(L, 1);
         bool glob = (lua_gettop(L) >= 2) && lua_toboolean(L, 2);
@@ -1189,6 +1203,7 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (ct: CTypeSpec, ...: any) -> CType
     static int typeof_f(lua_State *L) {
         check_ct(L, 1, (lua_gettop(L) > 1) ? 2 : -1);
         /* make sure the type we've checked out is the result,
@@ -1198,6 +1213,7 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (value: CData) -> CData
     static int addressof_f(lua_State *L) {
         auto &cd = ffi::checkcdata(L, 1);
         ffi::newcdata(L, ast::c_type{
@@ -1207,6 +1223,7 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (value: CData, finalizer: nil) -> CData
     static int gc_f(lua_State *L) {
         auto &cd = ffi::checkcdata(L, 1);
         if (lua_isnil(L, 2)) {
@@ -1222,6 +1239,7 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (ct: CTypeSpec, nelem: number?) -> number?
     static int sizeof_f(lua_State *L) {
         if (ffi::iscdata(L, 1)) {
             lua_pushinteger(L, ffi::cdata_value_size(L, 1));
@@ -1287,12 +1305,14 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (ct: CTypeSpec) -> number
     static int alignof_f(lua_State *L) {
         auto &ct = check_ct(L, 1);
         lua_pushinteger(L, ct.libffi_type()->alignment);
         return 1;
     }
 
+    // @luau instance (ct: CTypeSpec, field: string) -> number?
     static int offsetof_f(lua_State *L) {
         auto &ct = check_ct(L, 1);
         char const *fname = luaL_checkstring(L, 2);
@@ -1312,6 +1332,7 @@ struct ffi_module {
         return 0;
     }
 
+    // @luau instance (ct: CTypeSpec, value: any) -> boolean
     static int istype_f(lua_State *L) {
         auto &ct = check_ct(L, 1);
         auto cd = ffi::testcval(L, 2);
@@ -1330,6 +1351,7 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (new_value: number?) -> number
     static int errno_f(lua_State *L) {
         int cur = errno;
         if (lua_gettop(L) >= 1) {
@@ -1339,6 +1361,7 @@ struct ffi_module {
         return 1;
     }
 
+    // @luau instance (pointer: CData | string, length: number?) -> string
     static int string_f(lua_State *L) {
         if (!ffi::iscval(L, 1)) {
             if (lua_type(L, 1) == LUA_TSTRING) {
@@ -1464,6 +1487,7 @@ argcheck:
 
     /* FIXME: lengths (and character) in these APIs may be given by cdata... */
 
+    // @luau instance (destination: CData, source: CData | string, length: number?) -> ()
     static int copy_f(lua_State *L) {
         void *dst = check_voidptr(L, 1);
         void const *src;
@@ -1483,6 +1507,7 @@ argcheck:
         return 0;
     }
 
+    // @luau instance (destination: CData, length: number, byte: number?) -> ()
     static int fill_f(lua_State *L) {
         void *dst = check_voidptr(L, 1);
         auto len = ffi::check_arith<std::size_t>(L, 2);
@@ -1491,6 +1516,7 @@ argcheck:
         return 0;
     }
 
+    // @luau instance (value: any, base: number?) -> number?
     static int tonumber_f(lua_State *L) {
         auto *cd = ffi::testcdata(L, 1);
         if (cd) {
@@ -1521,12 +1547,14 @@ argcheck:
         return lua_gettop(L);
     }
 
+    // @luau instance (value: CData) -> any
     static int toretval_f(lua_State *L) {
         auto &cd = ffi::checkcdata(L, 1);
         ffi::to_lua(L, cd.decl, &cd.as<void *>(), ffi::RULE_RET, false);
         return 1;
     }
 
+    // @luau instance (expression: string) -> CData
     static int eval_f(lua_State *L) {
         /* TODO: accept expressions */
         char const *str = luaL_checkstring(L, 1);
@@ -1538,6 +1566,7 @@ argcheck:
         return 1;
     }
 
+    // @luau instance (value: any) -> string
     static int type_f(lua_State *L) {
         if (ffi::iscval(L, 1)) {
             lua_pushliteral(L, "cdata");
@@ -1548,6 +1577,7 @@ argcheck:
         return 1;
     }
 
+    // @luau instance (parameter: string) -> boolean
     static int abi_f(lua_State *L) {
         luaL_checkstring(L, 1);
         lua_pushvalue(L, 1);
@@ -1671,9 +1701,11 @@ argcheck:
             util::make_rc<ast::c_type>(ast::C_BUILTIN_VOID, 0),
             0, ast::C_BUILTIN_PTR
         }, sizeof(void *)).as<void *>() = nullptr;
+        // @luau-field nullptr: CData
         lua_setfield(L, inst_idx, "nullptr");
     }
 
+    // @luau factory () -> Instance
     static int new_instance_f(lua_State *L) {
         luaL_argcheck(L, lua_gettop(L) == 0, 1, "expected no arguments");
 
